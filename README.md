@@ -1,31 +1,22 @@
-## Filename Cleaner
+# UltiScore
 
-### http://erdostom.github.io/filenamecleaner
-------
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A mobile-first Hungarian Ulti score sheet. [Open the calculator](https://ulti.tamaserdos.com/).
 
-In the project directory, you can run:
+Enter an integer game score for each of up to four players. Leave unused slots empty. For each player, the calculator adds the differences between their game score and every other participant’s score, adds their individual adjustment, and multiplies that total by the selected multiplier. Individual adjustments must sum to zero. Blank adjustments count as zero.
 
-### `yarn start`
+The multiplier defaults to 0.25. Choose a preset or enter a custom number, including zero or a negative value. The last valid setting is saved in the browser. Scores stay in memory for the current page.
 
-Runs the app in the development mode.<br />
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+## Development
 
-The page will reload if you make edits.<br />
-You will also see any lint errors in the console.
+Use Node.js 22.12 or newer.
 
-### `yarn test`
+```sh
+npm ci
+npm run dev
+```
 
-Launches the test runner in the interactive watch mode.<br />
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Run `npm test` for scoring tests. Run `npm run build` to generate the static site in `dist/`, then `npm run preview` to serve the production build locally.
 
-### `yarn build`
+## Deployment
 
-Builds the app for production to the `build` folder.<br />
-It correctly bundles React in production mode and optimizes the build for the best performance.
-
-The build is minified and the filenames include the hashes.<br />
-Your app is ready to be deployed!
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
+Push to `master` to test, build, and publish to GitHub Pages. You can also run the **Deploy UltiScore to Pages** workflow manually. The production domain is `ulti.tamaserdos.com`.

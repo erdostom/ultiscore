@@ -1,0 +1,162 @@
+import '@fontsource-variable/dm-sans/wght.css';
+import '@fontsource/dm-serif-text/latin-400.css';
+import '@fontsource/dm-serif-text/latin-ext-400.css';
+import './styles.css';
+import { decimal, defaultMultiplier, format, presets, settle } from './scoring.js';
+
+const byId = id => document.getElementById(id);
+const drawings = {
+  info: '<circle cx="12" cy="12" r="8.8"/><path d="M12 10.8v5.4m0-8V8"/>',
+  users: '<circle cx="9" cy="8" r="3"/><path d="M2.5 19v-1a6.5 6.5 0 0 1 13 0v1m.3-14a3.1 3.1 0 0 1 0 6m2 2.4a5 5 0 0 1 3.4 4.8V19"/>',
+  sum: '<path d="M18 4H5l8 8-8 8h13"/>',
+};
+function icon(name) {
+  return `<svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${drawings[name]}</svg>`;
+}
+
+document.querySelector('.result-mark').innerHTML = icon('sum');
+byId('player-count').innerHTML = icon('users') + '<span></span>';
+
+byId('balance-icon').innerHTML = icon('info');
+
+const fields = Array.from({ length: 4 }, (_, index) => {
+  const n = index + 1;
+  const row = document.createElement('div');
+  row.className = 'entry-grid entry';
+  row.innerHTML = `<strong class="identity">${n}. játékos</strong>
+    <input id="score-${n}" type="text" inputmode="decimal" aria-label="${n}. játékos játékpontja" autocomplete="off" spellcheck="false" placeholder="–" />
+    <input id="adjust-${n}" type="text" inputmode="decimal" aria-label="${n}. játékos egyéni pontja" autocomplete="off" spellcheck="false" placeholder="0" />`;
+  byId('entries').append(row);
+
+  const result = document.createElement('li');
+  result.innerHTML = `<span class="result-label">${n}. játékos</span>
+    <output for="score-${n} adjust-${n} multiplier custom" aria-label="${n}. játékos végeredménye" aria-live="off">–</output>`;
+  byId('totals').append(result);
+  const steps = byId('steps').tBodies[0].insertRow();
+  steps.innerHTML = `<th scope="row">${n}.<span class="player-word"> játékos</span></th><td></td><td></td><td></td>`;
+  const pair = document.createElement('div');
+  pair.innerHTML = `<dt>${n}. játékos</dt><dd></dd>`;
+  byId('pair-equations').append(pair);
+  return {
+    score: byId('score-' + n), adjustment: byId('adjust-' + n), steps, pair,
+    result: result.querySelector('output'),
+  };
+});
+
+const multiplier = byId('multiplier');
+const custom = byId('custom');
+for (const value of presets) multiplier.add(new Option(value.replace('.', ',') + ' ×', value));
+multiplier.add(new Option('Egyéni', 'custom'));
+
+const storageKey = 'ultiscore.multiplier.v1';
+try {
+  const saved = JSON.parse(localStorage.getItem(storageKey));
+  if (saved && (presets.includes(saved.choice) || (saved.choice === 'custom' && typeof saved.custom === 'string' && decimal(saved.custom)))) {
+    multiplier.value = saved.choice;
+    const savedCustom = typeof saved.custom === 'string' ? decimal(saved.custom) : null;
+    custom.value = savedCustom === null ? '' : format(savedCustom);
+  }
+} catch { /* The calculator also works with browser storage disabled. */ }
+
+function saveMultiplier() {
+  if (multiplier.value === 'custom' && !decimal(custom.value)) return;
+  try {
+    localStorage.setItem(storageKey, JSON.stringify({ choice: multiplier.value, custom: custom.value }));
+  } catch { /* Keep using the setting for this page. */ }
+}
+
+function markInvalid(input, invalid, description) {
+  input.setAttribute('aria-invalid', String(invalid));
+  if (invalid) input.setAttribute('aria-describedby', description);
+  else input.removeAttribute('aria-describedby');
+}
+
+function render() {
+  const isCustom = multiplier.value === 'custom';
+  byId('custom-setting').hidden = !isCustom;
+  const entries = fields.map(({ score, adjustment }) => ({ score: score.value, adjustment: adjustment.value }));
+  const game = settle(entries, isCustom ? custom.value : (multiplier.value || defaultMultiplier));
+  const errors = [];
+  fields.forEach(({ score, adjustment, result, steps, pair }, i) => {
+    const row = game.rows[i];
+    markInvalid(score, row.invalidScore, 'entry-error');
+    markInvalid(adjustment, row.invalidAdjustment, 'entry-error');
+    const article = i === 0 ? 'Az' : 'A';
+    if (row.needsScore) errors.push(`${article} ${i + 1}. játékos egyéni pontjához adj meg játékpontot is (akár nullát).`);
+    else if (row.invalidScore) errors.push(`${article} ${i + 1}. játékos játékpontja egész szám legyen.`);
+    if (row.invalidAdjustment) errors.push(`${article} ${i + 1}. játékos egyéni pontja szám legyen.`);
+    steps.hidden = row.points === null;
+    steps.cells[1].textContent = format(row.difference, true);
+    steps.cells[2].textContent = format(row.extra, true);
+    steps.cells[3].textContent = format(row.subtotal, true);
+    pair.hidden = row.difference === null;
+    const terms = game.rows.flatMap((opponent, j) => {
+      if (i === j || row.difference === null || opponent.points === null) return [];
+      const other = format(opponent.points);
+      const operand = opponent.points.lt(0) ? '(' + other + ')' : other;
+      return [`(${format(row.points)} − ${operand})`];
+    });
+    pair.lastElementChild.textContent = terms.length ? terms.join(' + ') + ' = ' + format(row.difference, true) : '';
+    const sign = row.final === null ? 'pending' : row.final.gt(0) ? 'positive' : row.final.lt(0) ? 'negative' : '';
+    result.parentElement.hidden = row.points === null;
+    result.value = format(row.final, true);
+    result.className = sign;
+  });
+  byId('steps').hidden = game.count === 0;
+  byId('steps-empty').hidden = game.count > 0;
+  byId('pairs').hidden = game.count < 2 || game.rows.some(row => row.invalidScore);
+  byId('player-count').lastElementChild.textContent = game.count + ' / 4 játékos';
+  const showBalance = game.balance !== null && !game.balance.eq(0);
+  byId('balance-box').hidden = !showBalance;
+  byId('balance-hint').hidden = !showBalance;
+  byId('balance').textContent = format(game.balance, true);
+  byId('balance-hint').textContent = showBalance
+    ? `A nullához még ${format(game.balance.neg(), true)} egyéni pontot kell elosztani.` : '';
+  byId('entry-error').hidden = !errors.length;
+  byId('entry-error').textContent = errors.join(' ');
+  markInvalid(custom, !game.multiplier, 'custom-error');
+  byId('custom-error').hidden = !!game.multiplier;
+  const summary = game.rows.map((row, i) => row.final === null ? '' : `${i + 1}. játékos: ${format(row.final, true)}`).filter(Boolean);
+  byId('notice').textContent = [...errors, ...(showBalance ? [byId('balance-hint').textContent] : []),
+    ...(!game.multiplier ? [byId('custom-error').textContent] : []), ...summary].join(' ');
+}
+
+// Some mobile decimal keyboards omit the minus sign.
+for (const input of document.querySelectorAll('input[inputmode="decimal"]')) {
+  const integerOnly = input.id.startsWith('score-');
+  input.addEventListener('focus', () => {
+    if (decimal(input.value, integerOnly) !== null) {
+      input.value = input.value.replace(/[ \u00a0\u202f]/g, '').replace('−', '-');
+    }
+  });
+  input.addEventListener('blur', () => {
+    const value = decimal(input.value, integerOnly);
+    if (value !== null) input.value = format(value);
+  });
+  const wrap = document.createElement('div');
+  wrap.className = 'number-field';
+  input.before(wrap);
+  wrap.append(input);
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'sign';
+  toggle.textContent = '±';
+  toggle.setAttribute('aria-label', (input.getAttribute('aria-label') || 'Egyéni szorzó') + ' előjelváltás');
+  toggle.addEventListener('pointerdown', event => event.preventDefault());
+  toggle.addEventListener('click', () => {
+    const value = input.value.trim();
+    input.value = /^[-−]/.test(value) ? value.slice(1) : '-' + value.replace(/^\+/, '');
+    input.focus();
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  wrap.append(toggle);
+}
+
+byId('entries').addEventListener('input', render);
+custom.addEventListener('input', () => { render(); saveMultiplier(); });
+multiplier.addEventListener('change', () => {
+  render();
+  saveMultiplier();
+  if (multiplier.value === 'custom') custom.focus();
+});
+render();
