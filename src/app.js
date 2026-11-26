@@ -2,8 +2,12 @@ import '@fontsource-variable/dm-sans/wght.css';
 import '@fontsource/dm-serif-text/latin-400.css';
 import '@fontsource/dm-serif-text/latin-ext-400.css';
 import './styles.css';
-import { decimal, defaultMultiplier, format, presets, settle } from './scoring.js';
+import './scorebook.css';
+import { decimal, defaultMultiplier, format, formatSixths, presets, settle, settleFromBook } from './scoring.js';
+import { initScorebook } from './scorebook-ui.js';
+import { enhanceNumbers } from './number-fields.js';
 
+let bookNames = null;
 const byId = id => document.getElementById(id);
 const drawings = {
   info: '<circle cx="12" cy="12" r="8.8"/><path d="M12 10.8v5.4m0-8V8"/>',
@@ -75,31 +79,34 @@ function render() {
   const isCustom = multiplier.value === 'custom';
   byId('custom-setting').hidden = !isCustom;
   const entries = fields.map(({ score, adjustment }) => ({ score: score.value, adjustment: adjustment.value }));
-  const game = settle(entries, isCustom ? custom.value : (multiplier.value || defaultMultiplier));
+  const display = bookNames ? formatSixths : format;
+  const game = (bookNames ? settleFromBook : settle)(entries, isCustom ? custom.value : (multiplier.value || defaultMultiplier));
   const errors = [];
   fields.forEach(({ score, adjustment, result, steps, pair }, i) => {
     const row = game.rows[i];
+    const name = bookNames?.[i] || `${i + 1}. játékos`;
     markInvalid(score, row.invalidScore, 'entry-error');
     markInvalid(adjustment, row.invalidAdjustment, 'entry-error');
     const article = i === 0 ? 'Az' : 'A';
     if (row.needsScore) errors.push(`${article} ${i + 1}. játékos egyéni pontjához adj meg játékpontot is (akár nullát).`);
+    else if (row.invalidScore && bookNames) errors.push(`${name} játékpontja egész szám vagy osztott bónuszt tartalmazó pontszám legyen.`);
     else if (row.invalidScore) errors.push(`${article} ${i + 1}. játékos játékpontja egész szám legyen.`);
     if (row.invalidAdjustment) errors.push(`${article} ${i + 1}. játékos egyéni pontja szám legyen.`);
     steps.hidden = row.points === null;
-    steps.cells[1].textContent = format(row.difference, true);
-    steps.cells[2].textContent = format(row.extra, true);
-    steps.cells[3].textContent = format(row.subtotal, true);
+    steps.cells[1].textContent = display(row.difference, true);
+    steps.cells[2].textContent = display(row.extra, true);
+    steps.cells[3].textContent = display(row.subtotal, true);
     pair.hidden = row.difference === null;
     const terms = game.rows.flatMap((opponent, j) => {
       if (i === j || row.difference === null || opponent.points === null) return [];
-      const other = format(opponent.points);
+      const other = display(opponent.points);
       const operand = opponent.points.lt(0) ? '(' + other + ')' : other;
-      return [`(${format(row.points)} − ${operand})`];
+      return [`(${display(row.points)} − ${operand})`];
     });
-    pair.lastElementChild.textContent = terms.length ? terms.join(' + ') + ' = ' + format(row.difference, true) : '';
+    pair.lastElementChild.textContent = terms.length ? terms.join(' + ') + ' = ' + display(row.difference, true) : '';
     const sign = row.final === null ? 'pending' : row.final.gt(0) ? 'positive' : row.final.lt(0) ? 'negative' : '';
     result.parentElement.hidden = row.points === null;
-    result.value = format(row.final, true);
+    result.value = display(row.final, true);
     result.className = sign;
   });
   byId('steps').hidden = game.count === 0;
@@ -109,48 +116,19 @@ function render() {
   const showBalance = game.balance !== null && !game.balance.eq(0);
   byId('balance-box').hidden = !showBalance;
   byId('balance-hint').hidden = !showBalance;
-  byId('balance').textContent = format(game.balance, true);
+  byId('balance').textContent = display(game.balance, true);
   byId('balance-hint').textContent = showBalance
-    ? `A nullához még ${format(game.balance.neg(), true)} egyéni pontot kell elosztani.` : '';
+    ? `A nullához még ${display(game.balance.neg(), true)} egyéni pontot kell elosztani.` : '';
   byId('entry-error').hidden = !errors.length;
   byId('entry-error').textContent = errors.join(' ');
   markInvalid(custom, !game.multiplier, 'custom-error');
   byId('custom-error').hidden = !!game.multiplier;
-  const summary = game.rows.map((row, i) => row.final === null ? '' : `${i + 1}. játékos: ${format(row.final, true)}`).filter(Boolean);
+  const summary = game.rows.map((row, i) => row.final === null ? '' : `${bookNames?.[i] || (i + 1) + '. játékos'}: ${display(row.final, true)}`).filter(Boolean);
   byId('notice').textContent = [...errors, ...(showBalance ? [byId('balance-hint').textContent] : []),
     ...(!game.multiplier ? [byId('custom-error').textContent] : []), ...summary].join(' ');
 }
 
-// Some mobile decimal keyboards omit the minus sign.
-for (const input of document.querySelectorAll('input[inputmode="decimal"]')) {
-  const integerOnly = input.id.startsWith('score-');
-  input.addEventListener('focus', () => {
-    if (decimal(input.value, integerOnly) !== null) {
-      input.value = input.value.replace(/[ \u00a0\u202f]/g, '').replace('−', '-');
-    }
-  });
-  input.addEventListener('blur', () => {
-    const value = decimal(input.value, integerOnly);
-    if (value !== null) input.value = format(value);
-  });
-  const wrap = document.createElement('div');
-  wrap.className = 'number-field';
-  input.before(wrap);
-  wrap.append(input);
-  const toggle = document.createElement('button');
-  toggle.type = 'button';
-  toggle.className = 'sign';
-  toggle.textContent = '±';
-  toggle.setAttribute('aria-label', (input.getAttribute('aria-label') || 'Egyéni szorzó') + ' előjelváltás');
-  toggle.addEventListener('pointerdown', event => event.preventDefault());
-  toggle.addEventListener('click', () => {
-    const value = input.value.trim();
-    input.value = /^[-−]/.test(value) ? value.slice(1) : '-' + value.replace(/^\+/, '');
-    input.focus();
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-  });
-  wrap.append(toggle);
-}
+enhanceNumbers(byId('calculator'));
 
 byId('entries').addEventListener('input', render);
 custom.addEventListener('input', () => { render(); saveMultiplier(); });
@@ -160,3 +138,48 @@ multiplier.addEventListener('change', () => {
   if (multiplier.value === 'custom') custom.focus();
 });
 render();
+
+function fillCalculator(rows) {
+  bookNames = rows ? rows.map(row => row.name) : null;
+  fields.forEach(({ score, adjustment, steps, result, pair }, i) => {
+    const name = bookNames?.[i] || (i + 1) + '. játékos';
+    score.closest('.entry').querySelector('.identity').textContent = name;
+    result.previousElementSibling.textContent = name;
+    if (bookNames) steps.cells[0].textContent = name;
+    pair.firstElementChild.textContent = name;
+    score.value = rows?.[i]?.score ?? '';
+    adjustment.value = rows?.[i]?.extra ?? '';
+    score.setAttribute('aria-label', name + ' játékpontja');
+    adjustment.setAttribute('aria-label', name + ' egyéni pontja');
+    result.setAttribute('aria-label', name + ' végeredménye');
+    if (!bookNames) steps.cells[0].innerHTML = (i + 1) + '.<span class="player-word"> játékos</span>';
+  });
+  render();
+}
+
+const book = initScorebook({
+  transfer(rows) {
+    fillCalculator(rows);
+    location.hash = 'elszamolo/naplo';
+  },
+  reset() {
+    if (bookNames) fillCalculator(null);
+  },
+});
+
+function showTab() {
+  const log = location.hash === '#partinaplo';
+  byId('calculator').hidden = log;
+  byId('scorebook').hidden = !log;
+  byId('title').textContent = log ? 'Partinapló' : 'Ulti elszámoló';
+  for (const link of document.querySelectorAll('.tabs a')) {
+    if (link.hash === (log ? '#partinaplo' : '#elszamolo')) link.setAttribute('aria-current', 'page');
+    else link.removeAttribute('aria-current');
+  }
+  if (location.hash === '#elszamolo/naplo' && !bookNames) {
+    const rows = book.exportRows();
+    if (rows) fillCalculator(rows);
+  }
+}
+window.addEventListener('hashchange', showTab);
+showTab();

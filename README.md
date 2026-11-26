@@ -4,7 +4,15 @@ A mobile-first Hungarian Ulti score sheet. [Open the calculator](https://ulti.ta
 
 Enter an integer game score for each of up to four players. Leave unused slots empty. For each player, the calculator adds the differences between their game score and every other participant’s score, adds their individual adjustment, and multiplies that total by the selected multiplier. Individual adjustments must sum to zero. Blank adjustments count as zero.
 
-The multiplier defaults to 0.25. Choose a preset or enter a custom number, including zero or a negative value. The last valid setting is saved in the browser. Scores stay in memory for the current page.
+The multiplier defaults to 0.25. Choose a preset or enter a custom number, including zero or a negative value. The last valid setting is saved in the browser. Manually entered calculator scores stay in memory for the current page.
+
+## Partinapló
+
+The hand log saves the session in local storage. Enter two to four names in dealing order, choose the first dealer, and record the declarer’s játékpont and any balanced egyéni pontok for each hand. A pass keeps the dealer. A zero result passes the deal and keeps any earned marks. Neither uses up a parti.
+
+A buli ends after six counted hands per player by default, or as soon as everyone has earned every enabled mark. With both marks disabled, only the hand limit applies. At closing, review the missing-mark penalties and make any final játékpont corrections. The highest and lowest adjusted játékpont totals share the positive and negative bonus respectively. A complete tie has zero net bonus.
+
+Starting another buli carries forward the dealing order and overall standings. The buli selector also lets you correct earlier entries. Finalized session totals can be transferred to Elszámoló with their player names and individual points. Split bonuses transfer as exact fractions.
 
 ## Development
 

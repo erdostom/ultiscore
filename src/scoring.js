@@ -54,3 +54,35 @@ export function format(value, signed = false) {
   const number = fraction ? grouped + ',' + fraction : grouped;
   return signed && value.gt(0) ? '+' + number : number;
 }
+
+// The imported sheet uses sixths as its unit. This preserves split bonuses
+// through the pairwise calculation and multiplication, including three-way ties.
+export function formatSixths(value, signed = false) {
+  if (value === null) return format(null);
+  const [whole, fraction = ''] = value.toFixed().split('.');
+  const coefficient = new Big(whole + fraction);
+  if (coefficient.mod(3).eq(0)) {
+    return format(coefficient.div(3).times('0.5').times('1e-' + fraction.length), signed);
+  }
+  // Use an ordinary reduced fraction when the decimal would recur.
+  const numerator = BigInt(whole + fraction);
+  const denominator = 6n * 10n ** BigInt(fraction.length);
+  let a = numerator < 0n ? -numerator : numerator;
+  let b = denominator;
+  while (b) [a, b] = [b, a % b];
+  return format(new Big(String(numerator / a)), signed) + '/' + String(denominator / a);
+}
+
+export function settleFromBook(entries, multiplier) {
+  const scaled = entries.map(({ score, adjustment }) => {
+    const fraction = /^(.+)\/([36])$/.exec(score.trim());
+    const part = decimal(fraction ? fraction[1] : score, Boolean(fraction));
+    const sixths = part?.times(fraction ? 6 / Number(fraction[2]) : 6);
+    const extra = decimal(adjustment);
+    return {
+      score: sixths && sixths.mod(1).eq(0) ? sixths.toFixed() : score.trim() ? '?' : '',
+      adjustment: extra ? extra.times(6).toFixed() : adjustment,
+    };
+  });
+  return settle(scaled, multiplier);
+}
