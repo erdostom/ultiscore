@@ -1,7 +1,7 @@
 import Big from 'big.js';
 
-export const presets = ['0.25', '0.5', '1', '20', '25', '50', '100'];
-export const defaultMultiplier = presets[0];
+export const presets = ['0.2', '0.25', '0.5', '1', '20', '25', '50', '100'];
+export const defaultMultiplier = '0.25';
 
 const integerPattern = /^[+-]?\d+$/;
 const decimalPattern = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?$/i;

@@ -152,8 +152,10 @@ export function initScorebook({ transfer, reset }) {
         <div><span>${result.end ? 'Következő osztó' : 'Osztó'}</span><strong>${esc(players[result.dealer].name)}</strong></div></div>
       ${scoreTable(players, result.scoreSixths, result.extras, required, result.earned)}
       ${required.length ? `<p class="mark-key">${required.map(mark => `<span><b>${mark}</b> ${markNames[mark]}</span>`).join('')}</p>` : ''}
-      ${!result.end ? `<div class="book-actions"><button class="primary" data-action="hand">Parti rögzítése</button>
-        <button class="quiet" data-action="adjust">Pontkorrekció</button></div>` : ''}
+      ${!result.end ? `<div class="hand-entry"><div class="hand-heading"><h3 id="hand-title">Parti rögzítése</h3>
+        <button class="quiet" data-action="adjust">Pontkorrekció</button></div>
+        <div class="player-buttons" role="group" aria-labelledby="hand-title">${players.map(({ name }, i) =>
+          `<button class="primary" data-action="hand" data-player="${i}">${esc(name)}</button>`).join('')}</div></div>` : ''}
       ${active.finalized && last && allClosed ? `<div class="book-actions"><button class="primary" data-action="next">Új buli</button>
         <button class="secondary" data-action="transfer">Tovább az elszámolóhoz</button></div>` : ''}
       ${active.finalized && outstanding !== -1 ? `<button class="secondary" data-action="outstanding">${outstanding + 1}. buli folytatása</button>` : ''}
@@ -237,40 +239,35 @@ export function initScorebook({ transfer, reset }) {
     });
   }
 
-  function entryForm(kind, index = -1) {
+  function entryForm(kind, { index = -1, player = -1 } = {}) {
     const { players } = session;
     const active = round();
     const original = active.entries[index];
     const adjustment = kind === 'adjustment';
-    const entry = original ?? { kind, player: -1, score: '', marks: [], extras: [] };
-    const selector = `<label class="field"><span>${adjustment ? 'Játékos' : 'Felvevő'}</span>
-      <select name="player"><option value="">Válassz játékost</option>${players.map(({ name }, i) =>
-        `<option value="${i}"${entry.player === i ? ' selected' : ''}>${esc(name)}</option>`).join('')}</select></label>`;
+    const entry = original ?? { player, score: '', marks: [], extras: [] };
+    const selector = `<fieldset><legend>${adjustment ? 'Játékos' : 'Felvevő'}</legend>
+      <div class="player-buttons">${players.map(({ name }, i) =>
+        `<label><input type="radio" name="player" value="${i}"${checked(entry.player === i)}><span>${esc(name)}</span></label>`).join('')}</div></fieldset>`;
     const titles = adjustment ? ['Pontkorrekció', 'Korrekció javítása'] : ['Parti rögzítése', 'Osztás javítása'];
     const required = marks.filter(mark => active.rules.enabled[mark] || entry.marks?.includes(mark));
     const hasExtras = entry.extras?.some(value => !decimal(value || '0').eq(0));
     const form = openForm(titles[original ? 1 : 0], `
-      ${adjustment ? '' : `<fieldset class="type-picker"><legend class="sr-only">Osztás típusa</legend>
-      <label><input type="radio" name="kind" value="hand"${checked(entry.kind !== 'pass')}>Eredmény</label>
-      <label><input type="radio" name="kind" value="pass"${checked(entry.kind === 'pass')}>Elpasszolt</label></fieldset>`}
-      <div class="hand-body">${selector}${numberField('score', 'Játékpont', entry.score ?? '', true, 'pl. −12')}
+      ${selector}${numberField('score', 'Játékpont', entry.score ?? '', true, 'pl. −12')}
       ${adjustment ? '<p class="hint">A korrekció a játékos játékpontját módosítja. Az osztó és a hátralévő partik száma változatlan marad.</p>' :
         `${required.length ? `<fieldset class="entry-marks"><legend>Teljesített követelmények</legend>${required.map(mark =>
-          `<label class="choice"><input name="mark" type="checkbox" value="${mark}"${checked(entry.marks?.includes(mark))}><b>${mark}</b> ${markNames[mark]}</label>`).join('')}</fieldset>` : ''}
+          `<label class="choice"><input name="mark" type="checkbox" value="${mark}"${checked(entry.marks?.includes(mark))}><span><b>${mark}</b> ${markNames[mark]}</span></label>`).join('')}</fieldset>` : ''}
         <details class="extras"${hasExtras ? ' open' : ''}><summary>Egyéni pontok</summary>
         ${players.map(({ name }, i) => numberField('extra' + i, name, entry.extras?.[i] || '')).join('')}
-        <p class="hint extra-balance" aria-live="polite"></p></details>`}</div>
-      ${adjustment ? '' : '<p class="book-note pass-note" hidden>Az osztó marad, a parti nem számít bele a buliba. A következő eredményt az emelt értékkel add meg.</p>'}`,
+        <p class="hint extra-balance" aria-live="polite"></p></details>`}`,
     original ? 'Javítás mentése' : 'Rögzítés', data => {
-      const isPass = !adjustment && data.get('kind') === 'pass';
-      let saved = { kind: 'pass' };
-      if (!isPass) {
-        const player = data.get('player') === '' ? -1 : Number(data.get('player'));
-        saved = { kind: adjustment ? 'adjustment' : 'hand', player, score: data.get('score').trim() };
-        if (!adjustment) {
-          saved.marks = data.getAll('mark');
-          saved.extras = players.map((_, i) => data.get('extra' + i).trim());
-        }
+      const saved = {
+        kind: adjustment ? 'adjustment' : 'hand',
+        player: data.has('player') ? Number(data.get('player')) : -1,
+        score: data.get('score').trim(),
+      };
+      if (!adjustment) {
+        saved.marks = data.getAll('mark');
+        saved.extras = players.map((_, i) => data.get('extra' + i).trim());
       }
       updateRound(candidate => {
         candidate.finalized = false;
@@ -289,12 +286,16 @@ export function initScorebook({ transfer, reset }) {
         box.textContent = error.message;
       }
     };
+    const score = form.elements.score;
+    score.enterKeyHint = 'done';
+    if (form.elements.player.value) {
+      score.focus();
+      score.select();
+    } else form.querySelector('[name="player"]').focus();
+    form.addEventListener('click', event => {
+      if (event.target.name === 'player' && event.detail > 0) score.focus();
+    });
     if (adjustment) return;
-    const updateType = () => {
-      const pass = form.elements.kind.value === 'pass';
-      form.querySelector('.hand-body').hidden = pass;
-      form.querySelector('.pass-note').hidden = !pass;
-    };
     const updateMarks = () => {
       const player = form.elements.player.value;
       form.querySelectorAll('input[name="mark"]').forEach(input => {
@@ -312,11 +313,9 @@ export function initScorebook({ transfer, reset }) {
       balance.classList.toggle('error', sum === null || !sum.eq(0));
     };
     form.onchange = event => {
-      if (event.target.name === 'kind') updateType();
       if (event.target.name === 'player') updateMarks();
     };
     form.oninput = updateBalance;
-    updateType();
     updateMarks();
     updateBalance();
   }
@@ -420,10 +419,11 @@ export function initScorebook({ transfer, reset }) {
       session.rounds.push(newRound(session.rules));
       commit();
     }
-    if (action === 'hand' || action === 'adjust') entryForm(action === 'hand' ? 'hand' : 'adjustment');
+    if (action === 'hand') entryForm('hand', { player: Number(button.dataset.player) });
+    if (action === 'adjust') entryForm('adjustment');
     if (action === 'edit') {
       const i = Number(button.dataset.index);
-      entryForm(round().entries[i].kind, i);
+      entryForm(round().entries[i].kind, { index: i });
     }
     if (action === 'finalize') updateRound(candidate => { candidate.finalized = true; });
     if (action === 'next' && session.rounds.every(b => b.finalized)) {

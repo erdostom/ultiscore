@@ -1,5 +1,5 @@
 .tabs, .segments, .move-buttons, .book-actions, .dialog-actions, .entry-summary, .book-toolbar,
-.setup-count, .setup-foot, .seat-head, .mark-key, .choice, .type-picker { display: flex; align-items: center; }
+.setup-count, .setup-foot, .seat-head, .mark-key, .choice { display: flex; align-items: center; }
 .tabs, .segments { gap: .2rem; padding: .2rem; background: #e9eee3; border-radius: .65rem; }
 .tabs a { padding: .45rem .65rem; border-radius: .47rem; font-size: .86rem; font-weight: 650; text-decoration: none; color: #526455; }
 .tabs a[aria-current], .segments [aria-pressed=true] { background: #fffefa; color: var(--forest); box-shadow: 0 1px 4px #24382520; }
@@ -37,7 +37,7 @@ input[type=radio], input[type=checkbox] { accent-color: var(--forest); width: 1.
 .setup-foot span { font-size: .9rem; }
 .book-toolbar { margin-bottom: .6rem; }
 .round-label { font-weight: 700; color: var(--forest); }
-.round-label select, #book-dialog select { appearance: auto; padding-right: .5rem; }
+.round-label select { appearance: auto; padding-right: .5rem; }
 .book-layout { display: grid; gap: 1rem; align-items: start; }
 .book-layout .panel-head, .ledger .panel-head { margin-bottom: .85rem; }
 .metrics { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); background: #eef3e8; border-radius: .7rem; margin-bottom: .85rem; padding: .85rem 1rem; gap: .8rem; }
@@ -58,6 +58,17 @@ input[type=radio], input[type=checkbox] { accent-color: var(--forest); width: 1.
 .stamp.met { background: #dfeddd; color: #275636; }
 .mark-key { flex-wrap: wrap; gap: .2rem 1rem; margin: .45rem 0 0; font-size: .78rem; }
 .mark-key b { color: var(--forest); }
+.hand-entry { border-top: 1px solid var(--line); margin-top: 1rem; padding-top: .35rem; }
+.hand-heading { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.hand-heading h3 { margin: 0; font-size: 1rem; color: var(--forest); }
+.player-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
+.player-buttons:has(> :last-child:nth-child(3)) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.player-buttons > * { min-height: 3rem; padding: .55rem; overflow-wrap: anywhere; font-size: 1rem; }
+.player-buttons label { display: flex; align-items: center; justify-content: center; gap: .4rem; cursor: pointer;
+  border: 1px solid var(--line); border-radius: .5rem; font-weight: 600; }
+.player-buttons input { flex: 0 0 auto; }
+.player-buttons label:has(:checked), .entry-marks .choice:has(:checked) { background: #eaf0e3; border-color: #92ad95; color: var(--forest); }
+.player-buttons label:has(:focus-visible) { outline: 3px solid #497d68; outline-offset: 1px; }
 .book-actions, .dialog-actions { gap: .4rem .65rem; flex-wrap: wrap; margin-top: .9rem; }
 .standings > .secondary { margin-top: .9rem; }
 .closing, .overall { background: #f0f3e9; }
@@ -86,18 +97,22 @@ input[type=radio], input[type=checkbox] { accent-color: var(--forest); width: 1.
 #book-dialog { border: 1px solid var(--line); border-radius: 1rem; color: var(--ink); background: #fffefa; width: min(29rem, calc(100% - 1.5rem)); max-height: 90dvh; padding: 1.25rem; box-shadow: 0 1.25rem 4rem #102c293b; }
 #book-dialog::backdrop { background: #172a2366; }
 #book-dialog .panel-head { margin-bottom: 1rem; }
-.close-dialog { font-size: 1.6rem; padding: 0; width: 2.5rem; line-height: 1; }
+.close-dialog { font-size: 1.6rem; padding: 0; width: 3rem; min-height: 3rem; line-height: 1; }
 .field { display: grid; gap: .3rem; margin-block: .75rem; font-weight: 600; font-size: .92rem; }
 .field input { text-align: left; padding-inline: .65rem; }
-#book-dialog .type-picker { display: flex; gap: .5rem; }
-.type-picker label { flex: 1; text-align: center; border: 1px solid var(--line); border-radius: .5rem; padding: .6rem .5rem; cursor: pointer; font-size: .9rem; font-weight: 600; }
-.type-picker input { vertical-align: -.2rem; margin-right: .3rem; }
-.type-picker label:has(:checked) { background: #eaf0e3; border-color: #aabda4; }
+#book-dialog .player-buttons { margin-top: .35rem; }
+#book-dialog .number-field input { min-height: 3.125rem; }
 #book-dialog .entry-marks, #book-dialog .rules { margin-block: 1rem; }
+.entry-marks { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr)); gap: .5rem; }
+.entry-marks legend { margin-bottom: .35rem; }
+.entry-marks .choice { gap: .4rem; border: 1px solid var(--line); border-radius: .5rem; min-height: 3rem; padding: .4rem .6rem; font-size: .9rem; }
 .rules > div { padding: .5rem .75rem; border: 1px solid var(--line); border-radius: .55rem; margin-top: .55rem; }
 .rules .field, .extras .field { grid-template-columns: 1fr minmax(4.5rem, 32%); align-items: center; gap: .6rem; }
 .extras { border-block: 1px solid var(--line); margin-top: .9rem; }
+.extras summary { min-height: 3rem; align-content: center; }
 .extras .extra-balance { margin-bottom: .7rem; }
+.dialog-actions button { min-height: 3rem; }
+.dialog-actions .primary { flex: 1; }
 .dialog-actions .danger { margin-left: auto; }
 .identity, .result-label, .field span { overflow-wrap: anywhere; }
 .result-label { flex-shrink: 1; }
@@ -121,5 +136,7 @@ input[type=radio], input[type=checkbox] { accent-color: var(--forest); width: 1.
   .book-table th, .book-table td { padding-inline: .2rem; }
 }
 @media (pointer: coarse) {
-  #book-dialog .number-field:focus-within input { padding-left: 2rem; }
+  #book-dialog .number-field:focus-within input { padding-left: 3.5rem; }
+  #book-dialog .sign { width: 3rem; }
+  #scorebook .quiet, .segments button, .move-buttons button { min-width: 2.75rem; min-height: 2.75rem; }
 }

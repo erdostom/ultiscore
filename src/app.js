@@ -51,6 +51,7 @@ const multiplier = byId('multiplier');
 const custom = byId('custom');
 for (const value of presets) multiplier.add(new Option(value.replace('.', ',') + ' ×', value));
 multiplier.add(new Option('Egyéni', 'custom'));
+multiplier.value = defaultMultiplier;
 
 const storageKey = 'ultiscore.multiplier.v1';
 try {

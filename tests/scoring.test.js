@@ -36,7 +36,7 @@ test('incomplete or invalid input withholds results until corrected', () => {
 });
 
 test('uses the requested default and presets and formats Hungarian signed scores', () => {
-  assert.deepEqual(presets, ['0.25','0.5','1','20','25','50','100']);
+  assert.deepEqual(presets, ['0.2','0.25','0.5','1','20','25','50','100']);
   assert.equal(defaultMultiplier, '0.25');
   const scores = game(['10', '5'], [], '0,125').rows;
   assert.equal(format(scores[0].final, true), '+0,625');
